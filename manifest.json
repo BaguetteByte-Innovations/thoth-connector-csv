@@ -1,0 +1,287 @@
+{
+  "Manifest": {
+    "Id": "csv",
+    "Name": "CSV Import",
+    "Description": "Import your users from a CSV file (Students, Teachers or Staff).",
+    "Translations": {
+      "fr": {
+        "Name": "Import CSV",
+        "Description": "Importer des utilisateurs depuis un fichier CSV (élèves, enseignants ou personnels)."
+      }
+    },
+    "Fields": [
+      {
+        "Id": "csv_files",
+        "Label": "CSV file(s)",
+        "Type": "file_multiple_scoped",
+        "IsRequired": true,
+        "Description": "One or more .csv files. State the school each file describes when the file itself does not carry it.",
+        "Translations": {
+          "fr": {
+            "Label": "Fichier(s) CSV",
+            "Description": "Un ou plusieurs fichiers .csv. Indiquer l'école que décrit chaque fichier quand le fichier lui-même ne la porte pas."
+          }
+        }
+      },
+      {
+        "Id": "delimiter",
+        "Label": "Column separator",
+        "Type": "text",
+        "IsRequired": true,
+        "OverridablePerShape": true,
+        "Description": "The character used to separate the data (often a semicolon).",
+        "Placeholder": "e.g. ; or ,",
+        "DefaultValue": ";",
+        "Translations": {
+          "fr": {
+            "Label": "Séparateur de colonnes",
+            "Description": "Le caractère qui sépare les données (souvent un point-virgule).",
+            "Placeholder": "ex. ; ou ,"
+          }
+        }
+      },
+      {
+        "Id": "list_delimiter",
+        "Label": "List separator",
+        "Type": "text",
+        "IsRequired": true,
+        "OverridablePerShape": true,
+        "Description": "The character used to separate multiple values within a single column (e.g. multiple classes or groups).",
+        "Placeholder": "e.g. , or -",
+        "DefaultValue": ",",
+        "Translations": {
+          "fr": {
+            "Label": "Séparateur de liste",
+            "Description": "Le caractère qui sépare plusieurs valeurs dans une même colonne (plusieurs classes ou groupes, par exemple).",
+            "Placeholder": "ex. , ou -"
+          }
+        }
+      },
+      {
+        "Id": "scope_delimiter",
+        "Label": "School separator",
+        "Type": "text",
+        "IsRequired": true,
+        "OverridablePerShape": true,
+        "Description": "Leave as is in most cases. Only needed when a single cell mixes classes, pedagogical groups or subjects from several schools: it then separates the school code from the assignment (e.g. MY_SCHOOL#6A). Without this school prefix, an assignment belongs to the row's school.",
+        "Placeholder": "e.g. # or @",
+        "DefaultValue": "#",
+        "VisibleWhen": [
+          { "FieldId": "target_role", "Values": ["Teacher"] }
+        ],
+        "Translations": {
+          "fr": {
+            "Label": "Séparateur d'école",
+            "Description": "À laisser tel quel dans la plupart des cas. Ne sert que si une même cellule mélange des classes, groupes pédagogiques ou disciplines de plusieurs écoles : il sépare alors le code de l'école de l'affectation (ex. MON_ECOLE#6A). Sans ce préfixe d'école, une affectation appartient à l'école de la ligne.",
+            "Placeholder": "ex. # ou @"
+          }
+        }
+      },
+      {
+        "Id": "has_header",
+        "Label": "Does the file contain headers?",
+        "Type": "checkbox",
+        "IsRequired": true,
+        "OverridablePerShape": true,
+        "Description": "Leave checked if the first line of your file contains the column names.",
+        "DefaultValue": "true",
+        "Translations": {
+          "fr": {
+            "Label": "Le fichier contient-il une ligne d'en-tête ?",
+            "Description": "Laisser coché si la première ligne du fichier porte le nom des colonnes."
+          }
+        }
+      },
+      {
+        "Id": "encoding",
+        "Label": "File encoding",
+        "Type": "select",
+        "IsRequired": true,
+        "OverridablePerShape": true,
+        "Description": "How the characters of the file are written. UTF-8 by default. A file that is not in the stated encoding is refused.",
+        "DefaultValue": "utf-8",
+        "Options": {
+          "utf-8":        "UTF-8 (recent exports, LibreOffice, Excel \"CSV UTF-8\")",
+          "windows-1252": "Windows-1252 / ANSI (Excel \"CSV\" on Windows, most older exports)",
+          "iso-8859-15":  "ISO 8859-15 (Latin-9)",
+          "iso-8859-1":   "ISO 8859-1 (Latin-1)",
+          "custom":       "Other — state the name"
+        },
+        "Translations": {
+          "fr": {
+            "Label": "Encodage du fichier",
+            "Description": "Comment les caractères du fichier sont écrits. UTF-8 par défaut. Un fichier qui n'est pas dans l'encodage annoncé est refusé.",
+            "Options": {
+              "utf-8":        "UTF-8 (exports récents, LibreOffice, Excel « CSV UTF-8 »)",
+              "windows-1252": "Windows-1252 / ANSI (Excel « CSV » sous Windows, la plupart des exports anciens)",
+              "custom":       "Autre — préciser le nom"
+            }
+          }
+        }
+      },
+      {
+        "Id": "encoding_custom",
+        "Label": "Custom encoding",
+        "Type": "text",
+        "IsRequired": false,
+        "OverridablePerShape": true,
+        "Description": "An encoding name (IANA) or a code page number.",
+        "Placeholder": "e.g. ibm850, macintosh, utf-16, 1252",
+        "VisibleWhen": [
+          { "FieldId": "encoding", "Values": ["custom"] }
+        ],
+        "Translations": {
+          "fr": {
+            "Label": "Encodage personnalisé",
+            "Description": "Un nom d'encodage (IANA) ou un numéro de page de code.",
+            "Placeholder": "ex. ibm850, macintosh, utf-16, 1252"
+          }
+        }
+      },
+      {
+        "Id": "date_format",
+        "Label": "Date format",
+        "Type": "select",
+        "IsRequired": true,
+        "OverridablePerShape": true,
+        "Description": "How dates are written in the file. ISO 8601 by default: it is the only form that cannot be misread as another one.",
+        "DefaultValue": "yyyy-MM-dd",
+        "Options": {
+          "yyyy-MM-dd": "2010-12-31 (ISO 8601)",
+          "dd/MM/yyyy": "31/12/2010",
+          "d/M/yyyy":   "31/12/2010 or 5/3/2010 (leading zeros optional)",
+          "dd-MM-yyyy": "31-12-2010",
+          "dd.MM.yyyy": "31.12.2010",
+          "MM/dd/yyyy": "12/31/2010 (United States)",
+          "yyyyMMdd":   "20101231",
+          "custom":     "Other — state the pattern"
+        },
+        "Translations": {
+          "fr": {
+            "Label": "Format des dates",
+            "Description": "Comment les dates sont écrites dans le fichier. ISO 8601 par défaut : c'est la seule forme qu'aucune autre ne peut imiter.",
+            "Options": {
+              "d/M/yyyy":   "31/12/2010 ou 5/3/2010 (zéros initiaux facultatifs)",
+              "MM/dd/yyyy": "12/31/2010 (États-Unis)",
+              "custom":     "Autre — préciser le format"
+            }
+          }
+        }
+      },
+      {
+        "Id": "date_format_custom",
+        "Label": "Custom date format",
+        "Type": "text",
+        "IsRequired": false,
+        "OverridablePerShape": true,
+        "Description": "A .NET date pattern, e.g. d/M/yyyy. Several patterns may be separated by a vertical bar and are tried in the stated order; of two mutually ambiguous patterns, the first one wins. A two-digit year (yy) is read as 1950-2049, so prefer a four-digit year whenever the source has one.",
+        "Placeholder": "e.g. d/M/yyyy|yyyy-MM-dd",
+        "VisibleWhen": [
+          { "FieldId": "date_format", "Values": ["custom"] }
+        ],
+        "Translations": {
+          "fr": {
+            "Label": "Format de date personnalisé",
+            "Description": "Un format de date .NET, par exemple d/M/yyyy. Plusieurs formats se séparent par une barre verticale et sont essayés dans l'ordre indiqué ; de deux formats mutuellement ambigus, le premier l'emporte. Une année sur deux chiffres (yy) est lue entre 1950 et 2049 : préférer l'année sur quatre chiffres dès que la source la porte.",
+            "Placeholder": "ex. d/M/yyyy|yyyy-MM-dd"
+          }
+        }
+      },
+      {
+        "Id": "target_role",
+        "Label": "Type of users to import",
+        "Type": "select",
+        "IsRequired": true,
+        "PerSource": true,
+        "Description": "Determines the creation policy in Active Directory. Stated file by file: one batch may carry students, teachers and staff at once.",
+        "Options": {
+          "Student": "Students",
+          "Teacher": "Teachers",
+          "Staff":   "Staff"
+        },
+        "Translations": {
+          "fr": {
+            "Label": "Type d'utilisateurs à importer",
+            "Description": "Détermine la politique de création dans l'Active Directory. Se déclare fichier par fichier : un même lot peut porter à la fois des élèves, des enseignants et des personnels.",
+            "Options": {
+              "Student": "Élèves",
+              "Teacher": "Enseignants",
+              "Staff":   "Personnels"
+            }
+          }
+        }
+      },
+      {
+        "Id": "rows_per_person",
+        "Label": "Can one person appear on several rows?",
+        "Type": "select",
+        "IsRequired": true,
+        "Description": "Answer yes for an export split by school, or for a long format with one row per assignment. The sources need not share the same columns: each one carries its own mapping.",
+        "DefaultValue": "one",
+        "Options": {
+          "one":  "No — one row is one person",
+          "many": "Yes — cross-reference the rows of a same person"
+        },
+        "Translations": {
+          "fr": {
+            "Label": "Une même personne peut-elle apparaître sur plusieurs lignes ?",
+            "Description": "Répondre oui pour un export découpé par école, ou pour un format long à une ligne par affectation. Les sources n'ont pas à partager les mêmes colonnes : chacune porte sa propre correspondance.",
+            "Options": {
+              "one":  "Non — une ligne est une personne",
+              "many": "Oui — recouper les lignes d'une même personne"
+            }
+          }
+        }
+      },
+      {
+        "Id": "merge_anchor",
+        "Label": "Cross-reference the rows on",
+        "Type": "select",
+        "IsRequired": true,
+        "Description": "The column that identifies the person across the rows. It must be mapped and filled on every row.",
+        "DefaultValue": "SamAccountName",
+        "Options": {
+          "SourceId":          "Source identifier",
+          "SamAccountName":    "sAM",
+          "UserPrincipalName": "UPN"
+        },
+        "VisibleWhen": [
+          { "FieldId": "rows_per_person", "Values": ["many"] }
+        ],
+        "Translations": {
+          "fr": {
+            "Label": "Recouper les lignes sur",
+            "Description": "La colonne qui identifie la personne d'une ligne à l'autre. Elle doit être mise en correspondance et remplie sur chaque ligne.",
+            "Options": {
+              "SourceId":       "ID source",
+              "SamAccountName": "Identifiant (sAM)"
+            }
+          }
+        }
+      },
+      {
+        "Id": "residence_district",
+        "Label": "District of residence (transverse)",
+        "Type": "text",
+        "Description": "For people who do NOT reside in the district of the school stated on their file — a transverse district (education authority, local authority). Leave empty otherwise: the school of each file already states the residence. A mapped Residence column wins over this setting.",
+        "VisibleWhen": [
+          { "FieldId": "target_role", "Values": ["Teacher", "Staff"] }
+        ],
+        "Translations": {
+          "fr": {
+            "Label": "District de résidence (transverse)",
+            "Description": "Pour les personnes qui ne résident PAS dans le district de l'école indiquée sur leur fichier : un district transverse (rectorat, collectivité). Laisser vide sinon, l'école de chaque fichier indique déjà la résidence. Une colonne Résidence mise en correspondance l'emporte sur ce réglage."
+          }
+        }
+      }
+    ],
+    "JoinSourcesWhen": [
+      { "FieldId": "rows_per_person", "Values": ["many"] }
+    ]
+  },
+  "Runtime": {
+    "Kind": "Native",
+    "Entry": "Thoth.Connectors.Csv.exe",
+    "ExpectedSha256": null
+  }
+}

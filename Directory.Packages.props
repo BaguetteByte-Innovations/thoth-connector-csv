@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- MinVer: build-only, derives the connector version from this repo's git tags. -->
+  <ItemGroup>
+    <PackageVersion Include="MinVer" Version="5.0.0" />
+  </ItemGroup>
+</Project>

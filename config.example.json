@@ -1,0 +1,125 @@
+{
+  "parameters": {
+    "delimiter": ";",
+    "list_delimiter": ",",
+    "scope_delimiter": "#",
+    "has_header": "true",
+    "encoding": "utf-8",
+    "date_format": "yyyy-MM-dd",
+    "rows_per_person": "one"
+  },
+  "mappingsByRole": {
+    "Student": {
+      "Username":  "SamAccountName",
+      "FirstName": "FirstName",
+      "LastName":  "LastName",
+      "School":    "Scope",
+      "Class":     "Class",
+      "Groups":    "StudentPedagogicalGroups",
+      "BirthDate": "BirthDate"
+    },
+    "Teacher": {
+      "Username":  "SamAccountName",
+      "FirstName": "FirstName",
+      "LastName":  "LastName",
+      "District":  "Scope",
+      "Schools":   "Schools",
+      "Subjects":  "TeacherSubjects",
+      "Classes":   "TeacherClasses",
+      "Groups":    "TeacherPedagogicalGroups",
+      "BirthDate": "BirthDate"
+    },
+    "Staff": {
+      "Username":     "SamAccountName",
+      "FirstName":    "FirstName",
+      "LastName":     "LastName",
+      "Service zone": "Scope",
+      "Schools":      "Schools",
+      "Job":          "Description",
+      "BirthDate":    "BirthDate"
+    }
+  },
+  "autonomous": {
+    "enabled": false,
+    "ingestions": [
+      {
+        "targetRole": "Student",
+        "sources": [
+          { "url": "file:///C:/exports/local-authority/students.csv" }
+        ],
+        "parameters": {
+          "delimiter": ";",
+          "list_delimiter": ",",
+          "scope_delimiter": "#",
+          "has_header": "true",
+          "date_format": "dd/MM/yyyy",
+          "rows_per_person": "one"
+        }
+      },
+      {
+        "targetRole": "Student",
+        "sources": [
+          { "url": "file:///C:/exports/schoolC-other-format.csv", "scope": "SCHOOL_C" }
+        ],
+        "mappingOverride": {
+          "Identifier": "SamAccountName",
+          "name1":      "FirstName",
+          "name2":      "LastName",
+          "section":    "Class",
+          "options":    "StudentPedagogicalGroups",
+          "born":       "BirthDate"
+        }
+      },
+      {
+        "targetRole": "Teacher",
+        "sources": [
+          { "url": "file:///C:/exports/local-authority/teachers-identity.csv" },
+          { "url": "file:///C:/exports/local-authority/teachers-by-school/NORTHFIELD.csv", "scope": "NORTHFIELD" },
+          { "url": "file:///C:/exports/local-authority/teachers-by-school/HILLCREST.csv",  "scope": "HILLCREST" },
+          { "url": "file:///C:/exports/local-authority/teachers-by-school/ASHFORD.csv",    "scope": "ASHFORD" }
+        ],
+        "parameters": {
+          "delimiter": ";",
+          "list_delimiter": ",",
+          "scope_delimiter": "#",
+          "has_header": "true",
+          "date_format": "yyyy-MM-dd",
+          "rows_per_person": "many",
+          "merge_anchor": "SamAccountName"
+        }
+      },
+      {
+        "targetRole": "Teacher",
+        "sources": [
+          { "url": "file:///C:/exports/local-authority/teachers-transverse.csv" }
+        ],
+        "parameters": { "residence_district": "DISTRICT1", "date_format": "dd/MM/yyyy" }
+      },
+      {
+        "targetRole": "Teacher",
+        "sources": [
+          { "url": "https://sis.example.org/exports/fixed-term-contracts.csv" }
+        ],
+        "headers": { "Authorization": "Bearer REPLACE_WITH_API_TOKEN" }
+      },
+      {
+        "targetRole": "Staff",
+        "sources": [ { "url": "file:///C:/exports/agents.csv" } ],
+        "parameters": {
+          "delimiter": ",",
+          "has_header": "false",
+          "encoding": "windows-1252"
+        },
+        "mappingOverride": {
+          "Column_1": "SamAccountName",
+          "Column_2": "FirstName",
+          "Column_3": "LastName",
+          "Column_4": "Scope",
+          "Column_5": "Schools",
+          "Column_6": "Description",
+          "Column_7": "BirthDate"
+        }
+      }
+    ]
+  }
+}

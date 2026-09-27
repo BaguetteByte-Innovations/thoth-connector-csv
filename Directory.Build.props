@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Standalone build: the contract comes from its NuGet package. This connector's own version
+         comes from the repository's git tags (MinVer). -->
+    <ThothStandalone>true</ThothStandalone>
+    <!-- Version of the Thoth.Integration.Abstractions package this connector builds against. -->
+    <ThothAbstractionsVersion>0.9.0</ThothAbstractionsVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>
