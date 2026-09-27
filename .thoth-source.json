@@ -3,7 +3,7 @@
   "sources": [
     {
       "project": "Thoth.Connectors.Csv",
-      "fingerprint": "sha256:6cc1119f3e0a611b711a38c76d981fe484e71c804224a33c5e948db2f5f61ab2",
+      "fingerprint": "sha256:af40bed8daf016f33f7bce2b7fbfe4bb8789ee7251bacadd3993ebb64e2915e6",
       "clean": true
     }
   ]
