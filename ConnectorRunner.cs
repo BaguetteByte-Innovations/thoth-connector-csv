@@ -747,7 +747,8 @@ internal static class ConnectorRunner
             TeacherPedagogicalGroups: GetScopedList(idx.TeacherGroups),
             TeacherSubjects:          GetScopedList(idx.TeacherSubjects),
 
-            Description:   Get(idx.Description)
+            Description:   Get(idx.Description),
+            Mail:          Get(idx.Mail)
         );
     }
 
@@ -900,6 +901,7 @@ internal static class ConnectorRunner
                 Scope             = Residence(kept.Scope,          incoming.Scope),
                 Class             = Scalar(kept.Class,             incoming.Class,             nameof(kept.Class),             anchor),
                 Description       = Scalar(kept.Description,       incoming.Description,       nameof(kept.Description),       anchor),
+                Mail              = Scalar(kept.Mail,              incoming.Mail,              nameof(kept.Mail),              anchor),
 
                 // Concatenate, NEVER deduplicate: the engine deduplicates, and the contract forbids
                 // a connector from cleaning what it reads.
@@ -976,7 +978,7 @@ internal static class ConnectorRunner
         int Scope, int Class,
         int StudentGroups, int Schools,
         int TeacherClasses, int TeacherGroups, int TeacherSubjects,
-        int Description)
+        int Description, int Mail)
     {
         public static ColumnIndexes From(MappingProfile mapping, string[] headers, bool hasHeader)
         {
@@ -995,7 +997,8 @@ internal static class ConnectorRunner
                 TeacherClasses:     Lookup(nameof(ThothRawIdentity.TeacherClasses)),
                 TeacherGroups:      Lookup(nameof(ThothRawIdentity.TeacherPedagogicalGroups)),
                 TeacherSubjects:    Lookup(nameof(ThothRawIdentity.TeacherSubjects)),
-                Description:        Lookup(nameof(ThothRawIdentity.Description))
+                Description:        Lookup(nameof(ThothRawIdentity.Description)),
+                Mail:               Lookup(nameof(ThothRawIdentity.Mail))
             );
         }
     }
