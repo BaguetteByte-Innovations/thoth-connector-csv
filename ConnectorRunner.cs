@@ -17,8 +17,9 @@ namespace Thoth.Connectors.Csv;
 /// <item><b>one</b> (default) — one row is one person, rows are streamed straight out.</item>
 /// <item><b>many</b> — several rows may describe the SAME person (three files, one per school; or
 /// a long-format export with one row per teaching assignment). Rows are cross-referenced on an
-/// anchor cell and folded into a single identity. The manifest declares
-/// <c>JoinSourcesWhen</c> on that mode, so the engine hands every source over in ONE call.</item>
+/// anchor cell and folded into a single identity. Rows fold across every source of one launch:
+/// the engine hands every file of an interactive import over in a single launch, and every source
+/// of one ingestion of an autonomous import.</item>
 /// </list>
 /// Merging is NOT cleaning: the anchor is normalized to COMPARE only, lists are concatenated
 /// without deduplication (the engine owns the <c>Distinct</c>), and values travel raw.
@@ -45,7 +46,7 @@ internal static class ConnectorRunner
     private const string ParamEncodingCustom    = "encoding_custom";
     private const string ParamDateFormat        = "date_format";
     private const string ParamDateFormatCustom  = "date_format_custom";
-    private const string ParamTargetRole        = "target_role";
+    private const string ParamTargetRole        = ConnectorParameters.TargetRole;
     private const string ParamRowsPerPerson     = "rows_per_person";
     private const string ParamMergeAnchor       = "merge_anchor";
     private const string ParamResidenceDistrict = "residence_district";
@@ -216,7 +217,10 @@ internal static class ConnectorRunner
                 RequiresManualMapping: true,
                 SourceFields:          columns,
                 SampleData:            sampleData,
-                FixedRole:             fixedRole));
+                FixedRole:             fixedRole,
+                // The inspection only repeats the operator's answer, read from the CALL like the
+                // ingestion does: nothing is looked up in the file.
+                CrossReferenceTargets: IsMerging(context.Parameters) ? [MergeAnchorOf(context.Parameters)] : null));
             return 0;
         }
         catch (Exception ex)
@@ -273,8 +277,7 @@ internal static class ConnectorRunner
         // Cross-referencing stays a decision of the CALL: it folds the sources of one call
         // together, so it cannot differ from one source to the next.
         bool merging = IsMerging(context.Parameters);
-        string mergeAnchor =
-            Cleaned(context.Parameters.GetValueOrDefault(ParamMergeAnchor)) ?? nameof(ThothRawIdentity.SamAccountName);
+        string mergeAnchor = MergeAnchorOf(context.Parameters);
 
         try
         {
@@ -393,7 +396,7 @@ internal static class ConnectorRunner
 
         int Handle(string[] values, int number)
         {
-            ThothRawIdentity identity = BuildIdentity(values, options, layout);
+            (ThothRawIdentity identity, ResidenceOrigin residenceOrigin) = BuildIdentity(values, options, layout);
 
             if (buffer is null)
             {
@@ -411,7 +414,7 @@ internal static class ConnectorRunner
                     + $"in the column mapped to '{options.MergeAnchor}'.");
             }
 
-            buffer.Add(options.Role, anchor, identity);
+            buffer.Add(options.Role, anchor, identity, residenceOrigin);
             return 0;
         }
     }
@@ -458,6 +461,13 @@ internal static class ConnectorRunner
         parameters.GetValueOrDefault(ParamRowsPerPerson, "one")
             .Trim()
             .Equals(RowsPerPersonMany, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Target on which the rows of a same person are cross-referenced. One reading for the
+    /// inspection, which announces it, and the ingestion, which applies it.
+    /// </summary>
+    private static string MergeAnchorOf(Dictionary<string, string> parameters) =>
+        Cleaned(parameters.GetValueOrDefault(ParamMergeAnchor)) ?? nameof(ThothRawIdentity.SamAccountName);
 
     private static bool IsTrue(string value) => value.Equals("true", StringComparison.OrdinalIgnoreCase);
 
@@ -659,7 +669,8 @@ internal static class ConnectorRunner
         return row;
     }
 
-    private static ThothRawIdentity BuildIdentity(string[] values, ReadOptions options, SourceLayout layout)
+    private static (ThothRawIdentity Identity, ResidenceOrigin Origin) BuildIdentity(
+        string[] values, ReadOptions options, SourceLayout layout)
     {
         ColumnIndexes idx = layout.Indexes;
 
@@ -709,8 +720,8 @@ internal static class ConnectorRunner
             return list;
         }
 
-        // Residence: the mapped column cell > the batch's transverse district > the school stated on
-        // the file > null, which the engine backfills with the default scope.
+        // Residence: the cascade is stated in ResidenceCascade, which also applies it to a person
+        // folded from several rows (see MergeBuffer.Add).
         //
         // The file's school is handed over RAW, for every role alike: the ENGINE interprets it
         // (a student's school is their residence, a teacher's or a staff member's resolves to that
@@ -720,16 +731,12 @@ internal static class ConnectorRunner
         // The transverse district is the ONE role-conditioned term, and it is so because the SETTING
         // is: its VisibleWhen restricts it to teachers and staff, while it is asked once for the
         // whole call. A mixed batch would otherwise leak it onto the students.
-        //
-        // IsNullOrWhiteSpace serves ONLY the choice between cell and fallback: the retained value
-        // is passed RAW, and the engine sanitizes/uppercases.
-        string? scopeCell = Get(idx.Scope);
         string? transverseDistrict = options.Role is UserRole.Teacher or UserRole.Staff
             ? options.ResidenceDistrict
             : null;
-        string? scopeFallback = transverseDistrict ?? layout.FileScope;
+        ResolvedResidence residence = ResidenceCascade.Resolve(Get(idx.Scope), transverseDistrict, layout.FileScope);
 
-        return new ThothRawIdentity(
+        ThothRawIdentity identity = new(
             Role:              options.Role,
             SourceId:          Get(idx.SourceId),
             SamAccountName:    Get(idx.SamAccountName),
@@ -738,7 +745,7 @@ internal static class ConnectorRunner
             LastName:          Get(idx.LastName),
             BirthDate:         DateFormats.Parse(Get(idx.BirthDate), options.DateFormats),
 
-            Scope:                    string.IsNullOrWhiteSpace(scopeCell) ? scopeFallback : scopeCell,
+            Scope:                    residence.Value,
             Class:                    Get(idx.Class),
             StudentPedagogicalGroups: GetList(idx.StudentGroups),
             Schools:                  schools,
@@ -750,6 +757,8 @@ internal static class ConnectorRunner
             Description:   Get(idx.Description),
             Mail:          Get(idx.Mail)
         );
+
+        return (identity, residence.Origin);
     }
 
     private static bool IsBlank(List<string>? values)
@@ -847,9 +856,17 @@ internal static class ConnectorRunner
         private readonly Dictionary<string, int> _byKey = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<ThothRawIdentity> _identities = [];
         private readonly List<string> _anchors = [];
-        private int _residenceConflicts;
 
-        public void Add(UserRole role, string anchor, ThothRawIdentity identity)
+        // Origin of each kept residence (ThothRawIdentity.Scope carries the value). The contract has no
+        // room for it, and it must never be emitted.
+        private readonly List<ResidenceOrigin> _residenceOrigins = [];
+
+        // People whose rows disagree on their residence AT ITS CURRENT ORIGIN, with the first value
+        // ignored. Judged at the flush, not when read: a stronger origin read later settles the
+        // disagreement, and a warning already emitted could not be taken back.
+        private readonly Dictionary<int, string> _residenceDivergences = [];
+
+        public void Add(UserRole role, string anchor, ThothRawIdentity identity, ResidenceOrigin residenceOrigin)
         {
             string trimmed = anchor.Trim();
             // NUL cannot appear in a line read by ReadLine, so no anchor can spoof another role's key.
@@ -860,10 +877,21 @@ internal static class ConnectorRunner
                 _byKey[key] = _identities.Count;
                 _identities.Add(identity);
                 _anchors.Add(trimmed);
+                _residenceOrigins.Add(residenceOrigin);
                 return;
             }
 
-            _identities[position] = Fold(_identities[position], identity, _anchors[position]);
+            ThothRawIdentity kept = _identities[position];
+            ResolvedResidence keptResidence = new(kept.Scope, _residenceOrigins[position]);
+            (ResolvedResidence residence, bool diverged) =
+                ResidenceCascade.Fold(keptResidence, new ResolvedResidence(identity.Scope, residenceOrigin));
+
+            // A stronger origin settles any earlier disagreement; at equal origin, the first one is noted.
+            if (residence.Origin != keptResidence.Origin) _residenceDivergences.Remove(position);
+            else if (diverged) _residenceDivergences.TryAdd(position, identity.Scope!.Trim());
+
+            _identities[position] = Fold(kept, identity, _anchors[position]) with { Scope = residence.Value };
+            _residenceOrigins[position] = residence.Origin;
         }
 
         /// <summary>
@@ -880,9 +908,19 @@ internal static class ConnectorRunner
                 tally.Add(identity.Role, 1);
             }
 
-            if (_residenceConflicts > 0)
+            // Two schools of files disagreeing is a defect OF THE BATCH (per-school exports that never state
+            // where people live): said once, counting people. Two STATED residences disagreeing (two residence
+            // columns) is a defect OF THE PERSON: named, like a divergent first name.
+            int schoolConflicts = 0;
+            foreach ((int position, string ignored) in _residenceDivergences)
+            {
+                if (_residenceOrigins[position] == ResidenceOrigin.FileSchool) schoolConflicts++;
+                else WarnConflict(_anchors[position], nameof(ThothRawIdentity.Scope), _identities[position].Scope!.Trim(), ignored);
+            }
+
+            if (schoolConflicts > 0)
                 EmitLog("Warning",
-                    $"{_residenceConflicts} people appear in several files stating different schools: "
+                    $"{schoolConflicts} people appear in several files stating different schools: "
                     + "each kept the residence of the first file read. Map a Residence column, or fill "
                     + "'residence_district', to state it explicitly.");
 
@@ -898,7 +936,8 @@ internal static class ConnectorRunner
                 FirstName         = Scalar(kept.FirstName,         incoming.FirstName,         nameof(kept.FirstName),         anchor),
                 LastName          = Scalar(kept.LastName,          incoming.LastName,          nameof(kept.LastName),          anchor),
                 BirthDate         = Date(kept.BirthDate,           incoming.BirthDate,         nameof(kept.BirthDate),         anchor),
-                Scope             = Residence(kept.Scope,          incoming.Scope),
+                // Scope (the residence) is NOT folded here: arbitrating it needs the origins of the
+                // two values, which only the buffer knows (see Add).
                 Class             = Scalar(kept.Class,             incoming.Class,             nameof(kept.Class),             anchor),
                 Description       = Scalar(kept.Description,       incoming.Description,       nameof(kept.Description),       anchor),
                 Mail              = Scalar(kept.Mail,              incoming.Mail,              nameof(kept.Mail),              anchor),
@@ -937,24 +976,6 @@ internal static class ConnectorRunner
 
             if (kept != incoming)
                 WarnConflict(anchor, field, kept.Value.ToString("O"), incoming.Value.ToString("O"));
-
-            return kept;
-        }
-
-        /// <summary>
-        /// Residence folds like any other scalar — first non-empty wins — but its conflicts are
-        /// counted rather than reported one by one. A divergent first name is a defect OF THE
-        /// PERSON, so naming them is the useful thing; a divergent residence is a defect OF THE
-        /// BATCH (per-school exports that never state where people live), and repeating it per
-        /// person buries the one line that matters.
-        /// </summary>
-        private string? Residence(string? kept, string? incoming)
-        {
-            if (string.IsNullOrWhiteSpace(incoming)) return kept;
-            if (string.IsNullOrWhiteSpace(kept)) return incoming;
-
-            if (!kept.Trim().Equals(incoming.Trim(), StringComparison.OrdinalIgnoreCase))
-                _residenceConflicts++;
 
             return kept;
         }

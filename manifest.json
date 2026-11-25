@@ -274,9 +274,6 @@
           }
         }
       }
-    ],
-    "JoinSourcesWhen": [
-      { "FieldId": "rows_per_person", "Values": ["many"] }
     ]
   },
   "Runtime": {
